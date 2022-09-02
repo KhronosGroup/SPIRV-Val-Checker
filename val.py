@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import os, sys, subprocess
-import threading
+import multiprocessing
 
 def usage():
     print('Usage:', file=sys.stderr)
@@ -37,19 +37,20 @@ else:
 #print(inputdir)
 
 # Make a list of tests
-Tests = {}
+TestList = []
 for path, subdirs, files in os.walk(inputdir):
     for name in files:
         if name[-3:] == '.ll':
-            Tests[os.path.join(path, name)] = {'result': '', 'stderr': ''}
+            TestList.append(os.path.join(path, name))
 
-def ThreadProc(SrcFile):
+def Proc(SrcFile):
     ObjFile = SrcFile + '.o'
 
     run_llc = [llc_exe, '-O0', SrcFile, '-o', ObjFile, '--filetype=obj']
     run_val = [val_exe, ObjFile]
     run_rm = ['rm', ObjFile]
 
+    err = None
     res_llc = subprocess.run(run_llc, capture_output=True)
     if res_llc.returncode == 0:
         res_val = subprocess.run(run_val, capture_output=True)
@@ -57,24 +58,27 @@ def ThreadProc(SrcFile):
             result = 'PASS'
         else:
             result = 'VFAIL'
-            Tests[SrcFile]['stderr'] = res_val.stderr
+            err = res_val.stderr
         subprocess.run(run_rm, capture_output=True)
     else:
         result = 'CFAIL'
-    Tests[SrcFile]['result'] = result
+    return result, err
 
-Threads = []
+def main():
+#    print(multiprocessing.cpu_count())
+    pool = multiprocessing.Pool()
+    results = pool.map(Proc, TestList)
+#    print(results)
+    Tests = dict(zip(TestList, results))
+#    print(Tests0)
+    # update our map with received results - re-format new dictionary to our format
+#    Tests = {k: {'result': Tests0[k][0], 'stderr': Tests0[k][1]} for k in Tests0}
 
-for Test in Tests:
-    t = threading.Thread(target=ThreadProc, args=(Test,))
-    t.start()
-    Threads.append(t)
+    for Test in sorted(Tests):
+        print(Test + '\t' + Tests[Test][0])
+        stderr = Tests[Test][1]
+        if stderr:
+            print(stderr)
 
-for t in Threads:
-    t.join()
-
-for Test in sorted(Tests):
-    print(Test + '\t' + Tests[Test]['result'])
-    stderr = Tests[Test]['stderr']
-    if stderr:
-        print(stderr)
+if __name__ == '__main__':
+    main()
