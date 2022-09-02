@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import os, sys, subprocess
-import multiprocessing
+import multiprocessing.dummy
 
 def usage():
     print('Usage:', file=sys.stderr)
@@ -37,20 +37,19 @@ else:
 #print(inputdir)
 
 # Make a list of tests
-TestList = []
+Tests = {}
 for path, subdirs, files in os.walk(inputdir):
     for name in files:
         if name[-3:] == '.ll':
-            TestList.append(os.path.join(path, name))
+            Tests[os.path.join(path, name)] = {'result': '', 'stderr': ''}
 
-def Proc(SrcFile):
+def ThreadProc(SrcFile):
     ObjFile = SrcFile + '.o'
 
     run_llc = [llc_exe, '-O0', SrcFile, '-o', ObjFile, '--filetype=obj']
     run_val = [val_exe, ObjFile]
     run_rm = ['rm', ObjFile]
 
-    err = None
     res_llc = subprocess.run(run_llc, capture_output=True)
     if res_llc.returncode == 0:
         res_val = subprocess.run(run_val, capture_output=True)
@@ -58,27 +57,19 @@ def Proc(SrcFile):
             result = 'PASS'
         else:
             result = 'VFAIL'
-            err = res_val.stderr
+            Tests[SrcFile]['stderr'] = res_val.stderr
         subprocess.run(run_rm, capture_output=True)
     else:
         result = 'CFAIL'
-    return result, err
+    Tests[SrcFile]['result'] = result
 
-def main():
-#    print(multiprocessing.cpu_count())
-    pool = multiprocessing.Pool()
-    results = pool.map(Proc, TestList)
-#    print(results)
-    Tests = dict(zip(TestList, results))
-#    print(Tests0)
-    # update our map with received results - re-format new dictionary to our format
-#    Tests = {k: {'result': Tests0[k][0], 'stderr': Tests0[k][1]} for k in Tests0}
+#print(multiprocessing.cpu_count())
+pool = multiprocessing.dummy.Pool()
+pool.map(ThreadProc, Tests)
+#print(Tests)
 
-    for Test in sorted(Tests):
-        print(Test + '\t' + Tests[Test][0])
-        stderr = Tests[Test][1]
-        if stderr:
-            print(stderr)
-
-if __name__ == '__main__':
-    main()
+for Test in sorted(Tests):
+    print(Test + '\t' + Tests[Test]['result'])
+    stderr = Tests[Test]['stderr']
+    if stderr:
+        print(stderr)
