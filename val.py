@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import os, sys, subprocess
+import threading
 
 def usage():
     print('Usage:', file=sys.stderr)
@@ -36,13 +37,13 @@ else:
 #print(inputdir)
 
 # Make a list of tests
-TestList = []
+Tests = {}
 for path, subdirs, files in os.walk(inputdir):
     for name in files:
         if name[-3:] == '.ll':
-            TestList.append(os.path.join(path, name))
+            Tests[os.path.join(path, name)] = {'result': '', 'stderr': ''}
 
-for SrcFile in TestList:
+def ThreadProc(SrcFile):
     ObjFile = SrcFile + '.o'
 
     run_llc = [llc_exe, '-O0', SrcFile, '-o', ObjFile, '--filetype=obj']
@@ -56,8 +57,24 @@ for SrcFile in TestList:
             result = 'PASS'
         else:
             result = 'VFAIL'
-            print(res_val.stderr)
+            Tests[SrcFile]['stderr'] = res_val.stderr
         subprocess.run(run_rm, capture_output=True)
     else:
         result = 'CFAIL'
-    print(SrcFile + '\t' + result)
+    Tests[SrcFile]['result'] = result
+
+Threads = []
+
+for Test in Tests:
+    t = threading.Thread(target=ThreadProc, args=(Test,))
+    t.start()
+    Threads.append(t)
+
+for t in Threads:
+    t.join()
+
+for Test in sorted(Tests):
+    print(Test + '\t' + Tests[Test]['result'])
+    stderr = Tests[Test]['stderr']
+    if stderr:
+        print(stderr)
