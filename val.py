@@ -43,7 +43,7 @@ for path, subdirs, files in os.walk(inputdir):
         if name[-3:] == '.ll':
             TestList.append(os.path.join(path, name))
 
-def ThreadProc(SrcFile):
+def Proc(SrcFile):
     ObjFile = SrcFile + '.o'
 
     run_llc = [llc_exe, '-O0', SrcFile, '-o', ObjFile, '--filetype=obj']
@@ -64,10 +64,10 @@ def ThreadProc(SrcFile):
         result = 'CFAIL'
     return result, err
 
-with concurrent.futures.ThreadPoolExecutor() as executor:
-#    for Test in executor.map(ThreadProc, TestList):
+with concurrent.futures.ProcessPoolExecutor() as executor:
+#    for Test in executor.map(Proc, TestList):
 #        print(Test)
-    results = executor.map(ThreadProc, TestList)
+    results = executor.map(Proc, TestList)
     Tests = dict(zip(TestList, results))
 #    print(Tests)
 
@@ -76,3 +76,6 @@ with concurrent.futures.ThreadPoolExecutor() as executor:
         stderr = Tests[Test][1]
         if stderr:
             print(stderr)
+
+#if __name__ == '__main__':
+#    main()
