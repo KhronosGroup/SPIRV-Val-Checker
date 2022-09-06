@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import os, sys, subprocess
-import multiprocessing.dummy
+import concurrent.futures
 
 def usage():
     print('Usage:', file=sys.stderr)
@@ -37,11 +37,11 @@ else:
 #print(inputdir)
 
 # Make a list of tests
-Tests = {}
+TestList = []
 for path, subdirs, files in os.walk(inputdir):
     for name in files:
         if name[-3:] == '.ll':
-            Tests[os.path.join(path, name)] = {'result': '', 'stderr': ''}
+            TestList.append(os.path.join(path, name))
 
 def ThreadProc(SrcFile):
     ObjFile = SrcFile + '.o'
@@ -50,6 +50,7 @@ def ThreadProc(SrcFile):
     run_val = [val_exe, ObjFile]
     run_rm = ['rm', ObjFile]
 
+    err = None
     res_llc = subprocess.run(run_llc, capture_output=True)
     if res_llc.returncode == 0:
         res_val = subprocess.run(run_val, capture_output=True)
@@ -57,19 +58,21 @@ def ThreadProc(SrcFile):
             result = 'PASS'
         else:
             result = 'VFAIL'
-            Tests[SrcFile]['stderr'] = res_val.stderr
+            err = res_val.stderr
         subprocess.run(run_rm, capture_output=True)
     else:
         result = 'CFAIL'
-    Tests[SrcFile]['result'] = result
+    return result, err
 
-#print(multiprocessing.cpu_count())
-pool = multiprocessing.dummy.Pool()
-pool.map(ThreadProc, Tests)
-#print(Tests)
+with concurrent.futures.ThreadPoolExecutor() as executor:
+#    for Test in executor.map(ThreadProc, TestList):
+#        print(Test)
+    results = executor.map(ThreadProc, TestList)
+    Tests = dict(zip(TestList, results))
+#    print(Tests)
 
-for Test in sorted(Tests):
-    print(Test + '\t' + Tests[Test]['result'])
-    stderr = Tests[Test]['stderr']
-    if stderr:
-        print(stderr)
+    for Test in sorted(Tests):
+        print(Test + '\t' + Tests[Test][0])
+        stderr = Tests[Test][1]
+        if stderr:
+            print(stderr)
