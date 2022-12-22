@@ -1,0 +1,16 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: SPIRV Val Checker
+Upstream-Contact: The Khronos Group, Inc.
+Source: https://github.com/KhronosGroup/SPIRV-Val-Checker
+
+Files: README.md
+Copyright: The Khronos Group, Inc.
+License: CC-BY-4.0
+
+Files: val.py
+Copyright: The Khronos Group, Inc.
+License: Apache-2.0
+
+Files: val_serial.py
+Copyright: The Khronos Group, Inc.
+License: Apache-2.0
